@@ -1,6 +1,8 @@
 const express = require('express');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const Order= require('../models/Order');
+
 const router = express.Router();
 
 // Get all products
@@ -16,11 +18,11 @@ router.get('/products', async (req, res) => {
     }
 
     if (category) {
-      query.category = category; // Match by category name
+      query.category = category;
     }
 
     const products = await Product.find(query);
-    console.log("Filtered Products:", products); // Debugging
+    console.log("Filtered Products:", products); 
 
     res.status(200).send(products);
   } catch (error) {
@@ -40,3 +42,4 @@ router.get('/categories', async (req, res) => {
 });
 
 module.exports = router;
+
