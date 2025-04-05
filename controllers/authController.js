@@ -35,6 +35,7 @@ const registerStore = async (req, res) => {
       businessName,
       ownerName,
       ownerEmail,
+      password,
       businessType,
       NTN,
       contactEmail,
@@ -43,7 +44,6 @@ const registerStore = async (req, res) => {
       address,
       logoUrl,
       description,
-      password
     } = req.body;
 
     // Check if store exists
@@ -58,6 +58,7 @@ const registerStore = async (req, res) => {
       businessName,
       ownerName,
       ownerEmail,
+      password: hashedPassword,
       businessType,
       NTN,
       contactEmail,
@@ -66,7 +67,6 @@ const registerStore = async (req, res) => {
       address,
       logoUrl,
       description,
-      password: hashedPassword,
     });
 
     await store.save();
@@ -102,11 +102,15 @@ const loginUser = async (req, res) => {
 const loginStore = async (req, res) => {
   try {
     const { ownerEmail, password } = req.body;
+    console.log(ownerEmail);
 
     const store = await Store.findOne({ ownerEmail });
     if (!store) return res.status(404).json({ message: 'Store not found' });
-
+    if(store) return res.status(200).json({ store });
+    console.log(store.password);
+    console.log(password);
     const isPasswordCorrect = await bcrypt.compare(password, store.password);
+
     if (!isPasswordCorrect)
       return res.status(400).json({ message: 'Invalid email or password' });
 

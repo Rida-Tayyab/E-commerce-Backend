@@ -95,6 +95,9 @@ router.get('/categories/:id', async (req, res) => {
 router.post('/products', async (req, res) => {
   try {
     const { name, description, price, category, stock, image } = req.body;
+    const storeId = req.cookies.storeId;
+    console.log("storeId", storeId); // For raw cookie check
+    console.log("storeId parsed", req.cookies.storeId); // With cookie-parser
 
     console.log("post request for adding product recieved in backend: ", req.body);
     console.log("cookie", req.headers.cookie); // For raw cookie check
@@ -112,7 +115,7 @@ router.post('/products', async (req, res) => {
       category, 
       stock, 
       image,
-      //store: req.user.userId,  //need to set accordingly using the credentials recieved in req.body from frontend
+      store: storeId,  //need to set accordingly using the credentials recieved in req.body from frontend
       });
     await newProduct.save();
 
@@ -144,6 +147,7 @@ router.put('/order/:id', async (req, res) => {
 router.put('/products/:id', async (req, res) => {
   try {
     const { name, description, price, category, stock, image } = req.body;
+    
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
