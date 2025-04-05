@@ -96,7 +96,8 @@ router.post('/products', async (req, res) => {
   try {
     const { name, description, price, category, stock, image } = req.body;
 
-    if (!name || !description || !price || !category || stock === undefined) {
+    console.log("post request for adding product recieved in backend: ", req.body);
+    if (!name || !price || !category || stock === undefined) { //removed category for
       return res.status(400).send('All fields are required.');
     }
 
