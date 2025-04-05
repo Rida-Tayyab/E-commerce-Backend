@@ -98,6 +98,35 @@ const loginUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// Login Store
+const loginStore = async (req, res) => {
+  try {
+    const { ownerEmail, password } = req.body;
 
+    const store = await Store.findOne({ ownerEmail });
+    if (!store) return res.status(404).json({ message: 'Store not found' });
 
-module.exports = { registerUser, registerStore, loginUser };
+    const isPasswordCorrect = await bcrypt.compare(password, store.password);
+    if (!isPasswordCorrect)
+      return res.status(400).json({ message: 'Invalid email or password' });
+
+    const token = jwt.sign(
+      { id: store._id, ownerEmail: store.ownerEmail },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' } 
+    );
+
+    res.cookie('authToken', token, {
+      httpOnly: true,
+      secure: false, 
+      sameSite: 'Lax',
+    });
+    res.status(200).json({ message: 'Login successful', storeId: store._id });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { registerUser, registerStore, loginUser, loginStore };
