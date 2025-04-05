@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 
 const storeSchema = new mongoose.Schema(
   {
-    businessName: { type: String},
-    ownerName: { type: String},
-    ownerEmail: { type: String},
+    businessName: { type: String, required: true },
+    ownerName: { type: String, required: true },
+    ownerEmail: { type: String, required: true },
     businessType: { type: String},
     NTN: { type: String },
     contactEmail: { type: String },
