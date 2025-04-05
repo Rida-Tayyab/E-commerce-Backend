@@ -17,8 +17,7 @@ const productSchema = new mongoose.Schema({
     min: 0,
   },
   category: {
-    type: String,
-    required: true,
+    type: String, //removed required for testing
     trim: true,
   },
   stock: {
@@ -29,9 +28,9 @@ const productSchema = new mongoose.Schema({
   image: {
     type: String,
   },
-  seller: {
+  store: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Store',
     required: true,
   },
 }, { timestamps: true });

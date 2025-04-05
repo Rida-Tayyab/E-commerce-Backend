@@ -1,10 +1,11 @@
 const User = require('../models/User');
+const Store = require('../models/Store');
 const bcrypt = require('bcrypt');
 
 // Register User
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password,role } = req.body;
+    const { name, email, password } = req.body;
 
     // Check if user exists
     const userExists = await User.findOne({ email });
@@ -18,11 +19,58 @@ const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role,
     });
 
     await user.save();
     res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Register Store
+const registerStore = async (req, res) => {
+  try {
+    const {
+      businessName,
+      ownerName,
+      ownerEmail,
+      businessType,
+      NTN,
+      contactEmail,
+      phone,
+      website,
+      address,
+      logoUrl,
+      description,
+      password
+    } = req.body;
+
+    // Check if store exists
+    const storeExists = await Store.findOne({ ownerEmail });
+    if (storeExists) return res.status(400).json({ message: 'Store already exists' });
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const store = new Store({
+      businessName,
+      ownerName,
+      ownerEmail,
+      businessType,
+      NTN,
+      contactEmail,
+      phone,
+      website,
+      address,
+      logoUrl,
+      description,
+      password: hashedPassword,
+    });
+
+    await store.save();
+    res.status(201).json({ message: 'Store registered successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -50,5 +98,35 @@ const loginUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// Login Store
+const loginStore = async (req, res) => {
+  try {
+    const { ownerEmail, password } = req.body;
 
-module.exports = { registerUser, loginUser };
+    const store = await Store.findOne({ ownerEmail });
+    if (!store) return res.status(404).json({ message: 'Store not found' });
+
+    const isPasswordCorrect = await bcrypt.compare(password, store.password);
+    if (!isPasswordCorrect)
+      return res.status(400).json({ message: 'Invalid email or password' });
+
+    const token = jwt.sign(
+      { id: store._id, ownerEmail: store.ownerEmail },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' } 
+    );
+
+    res.cookie('authToken', token, {
+      httpOnly: true,
+      secure: false, 
+      sameSite: 'Lax',
+    });
+    res.status(200).json({ message: 'Login successful', storeId: store._id });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { registerUser, registerStore, loginUser, loginStore };

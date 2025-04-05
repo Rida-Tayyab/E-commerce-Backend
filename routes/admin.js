@@ -96,11 +96,24 @@ router.post('/products', async (req, res) => {
   try {
     const { name, description, price, category, stock, image } = req.body;
 
-    if (!name || !description || !price || !category || stock === undefined) {
+    console.log("post request for adding product recieved in backend: ", req.body);
+    console.log("cookie", req.headers.cookie); // For raw cookie check
+    console.log("cookie parsed", req.cookies); // With cookie-parser
+    console.log("headers", req.headers.authorization); // For token headers
+
+    if (!name || !price || !category || stock === undefined) { //removed category for
       return res.status(400).send('All fields are required.');
     }
 
-    const newProduct = new Product({ name, description, price, category, stock, image });
+    const newProduct = new Product({ 
+      name, 
+      description, 
+      price, 
+      category, 
+      stock, 
+      image,
+      //store: req.user.userId,  //need to set accordingly using the credentials recieved in req.body from frontend
+      });
     await newProduct.save();
 
     res.status(201).json({ message: 'Product added successfully', product: newProduct });
