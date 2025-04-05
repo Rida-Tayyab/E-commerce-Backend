@@ -9,6 +9,8 @@ const paymentRoutes = require('./routes/payment');
 const cartRoutes = require("./routes/cart");
 const orderRoutes = require("./routes/order");
 const storeRoutes = require("./routes/store");
+const cookieParser = require('cookie-parser');
+
 
 
 dotenv.config();
@@ -17,7 +19,12 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+app.use(cors({
+  origin: 'http://localhost:3000', // Replace with your frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+}));
 app.use('/api/auth', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/customer', customerRoutes);
