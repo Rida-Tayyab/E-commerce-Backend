@@ -1,10 +1,11 @@
 const User = require('../models/User');
+const Store = require('../models/Store');
 const bcrypt = require('bcrypt');
 
 // Register User
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password,role } = req.body;
+    const { name, email, password } = req.body;
 
     // Check if user exists
     const userExists = await User.findOne({ email });
@@ -18,11 +19,58 @@ const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role,
     });
 
     await user.save();
     res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Register Store
+const registerStore = async (req, res) => {
+  try {
+    const {
+      businessName,
+      ownerName,
+      ownerEmail,
+      businessType,
+      NTN,
+      contactEmail,
+      phone,
+      website,
+      address,
+      logoUrl,
+      description,
+      password
+    } = req.body;
+
+    // Check if store exists
+    const storeExists = await Store.findOne({ ownerEmail });
+    if (storeExists) return res.status(400).json({ message: 'Store already exists' });
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const store = new Store({
+      businessName,
+      ownerName,
+      ownerEmail,
+      businessType,
+      NTN,
+      contactEmail,
+      phone,
+      website,
+      address,
+      logoUrl,
+      description,
+      password: hashedPassword,
+    });
+
+    await store.save();
+    res.status(201).json({ message: 'Store registered successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -51,4 +99,5 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser };
+
+module.exports = { registerUser, registerStore, loginUser };

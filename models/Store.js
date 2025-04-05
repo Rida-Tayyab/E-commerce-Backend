@@ -19,6 +19,8 @@ const storeSchema = new mongoose.Schema(
     },
     logoUrl: { type: String },
     description: { type: String },
+    //take in password from store owner as well; later used for login
+    password: { type: String, required: true },
   },
   { timestamps: true }
 );
