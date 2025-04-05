@@ -1,9 +1,8 @@
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-import User from '../models/User';
-import Store from '../models/Store';
-import bcrypt from 'bcrypt';
-dotenv.config();
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const User = require('../models/User');
+const Store = require('../models/Store');
+
 
 // Register User
 const registerUser = async (req, res) => {
@@ -122,11 +121,12 @@ const loginUser = async (req, res) => {
 const loginStore = async (req, res) => {
   try {
     const { ownerEmail, password } = req.body;
-
+    console.log('Login Store:', req.body);
     const store = await Store.findOne({ ownerEmail });
     if (!store) return res.status(404).json({ message: 'Store not found' });
 
     const isPasswordCorrect = await bcrypt.compare(password, store.password);
+    console.log('Password Check:', isPasswordCorrect);
     if (!isPasswordCorrect)
       return res.status(400).json({ message: 'Invalid email or password' });
 
