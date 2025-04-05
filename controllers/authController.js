@@ -1,6 +1,9 @@
-const User = require('../models/User');
-const Store = require('../models/Store');
-const bcrypt = require('bcrypt');
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import User from '../models/User';
+import Store from '../models/Store';
+import bcrypt from 'bcrypt';
+dotenv.config();
 
 // Register User
 const registerUser = async (req, res) => {
@@ -87,37 +90,11 @@ const loginUser = async (req, res) => {
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect)
       return res.status(400).json({ message: 'Invalid email or password' });
-    console.log(user.isAdmin);
-    // Redirect user based on isAdmin status
-    if (user.isAdmin) {
-      return res.status(200).json({ user });
-    } else {
-      return res.status(200).json({ user });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-// Login Store
-const loginStore = async (req, res) => {
-  try {
-    const { ownerEmail, password } = req.body;
-    console.log(ownerEmail);
-
-    const store = await Store.findOne({ ownerEmail });
-    if (!store) return res.status(404).json({ message: 'Store not found' });
-    if(store) return res.status(200).json({ store });
-    console.log(store.password);
-    console.log(password);
-    const isPasswordCorrect = await bcrypt.compare(password, store.password);
-
-    if (!isPasswordCorrect)
-      return res.status(400).json({ message: 'Invalid email or password' });
 
     const token = jwt.sign(
-      { id: store._id, ownerEmail: store.ownerEmail },
+      { id: user._id, email: user.email, isAdmin: user.isAdmin },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' } 
+      { expiresIn: '7d' }
     );
 
     res.cookie('authToken', token, {
@@ -125,12 +102,62 @@ const loginStore = async (req, res) => {
       secure: false, 
       sameSite: 'Lax',
     });
-    res.status(200).json({ message: 'Login successful', storeId: store._id });
+
+    return res.status(200).json({
+      message: 'Login successful',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        isAdmin: user.isAdmin,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Login Store
+const loginStore = async (req, res) => {
+  try {
+    const { ownerEmail, password } = req.body;
+
+    const store = await Store.findOne({ ownerEmail });
+    if (!store) return res.status(404).json({ message: 'Store not found' });
+
+    const isPasswordCorrect = await bcrypt.compare(password, store.password);
+    if (!isPasswordCorrect)
+      return res.status(400).json({ message: 'Invalid email or password' });
+
+    const token = jwt.sign(
+      { id: store._id, ownerEmail: store.ownerEmail },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.cookie('authToken', token, {
+      httpOnly: true,
+      secure: false, 
+      sameSite: 'Lax',
+    });
+
+    res.status(200).json({
+      message: 'Login successful',
+      store: {
+        _id: store._id,
+        businessName: store.businessName,
+        ownerName: store.ownerName,
+        ownerEmail: store.ownerEmail,
+        businessType: store.businessType,
+      },
+    });
 
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 module.exports = { registerUser, registerStore, loginUser, loginStore };

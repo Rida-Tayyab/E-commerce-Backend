@@ -6,31 +6,6 @@ const Order= require('../models/Order');
 const router = express.Router();
 
 // Get all products
-/*router.get('/products', async (req, res) => {
-  const { search, category } = req.query;
-  console.log("Received Category:", category); // Debugging
-
-  try {
-    let query = {};
-
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
-    }
-
-    if (category) {
-      query.category = category;
-    }
-
-    const products = await Product.find(query);
-    console.log("Filtered Products:", products); 
-
-    res.status(200).send(products);
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).send('Error fetching products');
-  }
-});*/
-
 router.get('/products', async (req, res) => {
   try{
     const { search, category } = req.query;

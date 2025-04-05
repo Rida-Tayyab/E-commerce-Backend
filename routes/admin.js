@@ -115,7 +115,7 @@ router.post('/products', async (req, res) => {
       category, 
       stock, 
       image,
-      store: storeId,  //need to set accordingly using the credentials recieved in req.body from frontend
+      store: req.cookies.id,  //need to set accordingly using the credentials recieved in req.body from frontend
       });
     await newProduct.save();
 
