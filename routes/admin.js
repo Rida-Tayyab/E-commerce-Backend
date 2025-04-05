@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Order = require('../models/Order');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 
 // Get all categories (Read-Only)
 router.get('/categories', async (req, res) => {
@@ -94,17 +95,23 @@ router.get('/categories/:id', async (req, res) => {
 // Add a new product
 router.post('/products', async (req, res) => {
   try {
+    console.log("add product route was hit and req.cookies in add product", req.cookies);
+    const token = req.cookies.authToken;
+    console.log("token from cookies in add product", token);
+    if (!token) {
+      return res.status(401).send('No token provided');
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("decoded token in add product", decoded);
+    const storeId = decoded.id;
+
+    console.log("storeId from jwt", storeId); 
+
     const { name, description, price, category, stock, image } = req.body;
-    const storeId = req.cookies.storeId;
-    console.log("storeId", storeId); // For raw cookie check
-    console.log("storeId parsed", req.cookies.storeId); // With cookie-parser
 
     console.log("post request for adding product recieved in backend: ", req.body);
-    console.log("cookie", req.headers.cookie); // For raw cookie check
-    console.log("cookie parsed", req.cookies); // With cookie-parser
-    console.log("headers", req.headers.authorization); // For token headers
 
-    if (!name || !price || !category || stock === undefined) { //removed category for
+    if (!name || !price  || stock === undefined) { //removed category for testing
       return res.status(400).send('All fields are required.');
     }
 
@@ -115,7 +122,7 @@ router.post('/products', async (req, res) => {
       category, 
       stock, 
       image,
-      store: req.cookies.id,  //need to set accordingly using the credentials recieved in req.body from frontend
+      store: storeId,  //need to set accordingly using the credentials recieved in req.body from frontend
       });
     await newProduct.save();
 
