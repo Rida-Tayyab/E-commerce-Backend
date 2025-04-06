@@ -75,7 +75,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get Order by ID (Admin)
+// Get Order by ID of user(Admin)
 router.get("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)

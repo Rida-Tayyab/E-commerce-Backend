@@ -43,42 +43,38 @@ router.post('/categories', async (req, res) => {
     res.status(500).send('Error adding category');
   }
 });
-//get products
-router.get('/products', async (req, res) => {
-  const { search, category } = req.query;
-
+//get products by store id
+router.get('/products/store/:id', async (req, res) => {
+  const token = req.cookies.authToken;
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  console.log("decoded token in add product", decoded);
+  const storeId = decoded.id;
   try {
-    // Build query based on search and category filters
-    let query = {};
-
-    if (search) {
-      query.name = { $regex: search, $options: 'i' }; // Case-insensitive search
-    }
-
-    if (category) {
-      query.category = category;
-    }
-
-    const products = await Product.find(query);
-
-    res.status(200).send(products);
+    const products = await Product.find({ store: storeId })
+    res.status(200).json(products);
   } catch (error) {
     res.status(500).send('Error fetching products');
   }
 });
-//get orders
-router.get("/order", async (req, res) => {
-  try {
-    const orders = await Order.find()
-      .populate("user", "email")
-      .populate("products.product", "name price");
 
-    res.json(orders);
+
+//get orders bu store id
+router.get("/order/store/:id", async (req, res) => {
+  const token = req.cookies.authToken;
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  console.log("decoded token in add product", decoded);
+  const storeId = decoded.id;
+  try {
+    const orders = await Order.find({store : storeId})
+    console.log("orders from db", orders);
+    res.status(200).json(orders);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
+
+
 // Get a single category by ID
 router.get('/categories/:id', async (req, res) => {
   try {

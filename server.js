@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
+const storeRoutes = require('./routes/store');
 const customerRoutes = require('./routes/customer');
 const paymentRoutes = require('./routes/payment');
 const cartRoutes = require("./routes/cart");
@@ -24,7 +24,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use('/api/auth', authRoutes);
-app.use('/admin', adminRoutes);
+app.use('/store', storeRoutes);
 app.use('/customer', customerRoutes);
 app.use("/cart", cartRoutes);
 app.use("/order", orderRoutes);

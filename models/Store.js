@@ -21,6 +21,18 @@ const storeSchema = new mongoose.Schema(
     description: { type: String },
     //take in password from store owner as well; later used for login
     password: { type: String, required: true },
+    Order: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order'
+      }
+    ],
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      }
+    ],
   },
   { timestamps: true }
 );
