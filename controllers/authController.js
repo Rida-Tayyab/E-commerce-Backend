@@ -150,6 +150,8 @@ const loginStore = async (req, res) => {
         ownerName: store.ownerName,
         ownerEmail: store.ownerEmail,
         businessType: store.businessType,
+        logoUrl: store.logoUrl,
+        NTN: store.NTN,
       },
     });
 
