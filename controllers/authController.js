@@ -7,7 +7,7 @@ const Store = require('../models/Store');
 // Register User
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password,shippingAddress } = req.body;
 
     // Check if user exists
     const userExists = await User.findOne({ email });
@@ -21,6 +21,12 @@ const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      shippingAddress: {
+        address: shippingAddress.address,
+        city: shippingAddress.city,
+        postalCode: shippingAddress.postalCode,
+        country: shippingAddress.country,
+      },
     });
 
     await user.save();
@@ -109,6 +115,7 @@ const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         isAdmin: user.isAdmin,
+        shippingAddress: user.shippingAddress,
       },
     });
   } catch (error) {

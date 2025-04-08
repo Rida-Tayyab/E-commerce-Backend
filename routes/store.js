@@ -2,9 +2,21 @@ const express = require('express');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Order = require('../models/Order');
+const Store = require('../models/Store');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 
+
+//Get store by ID
+router.get('/store/:id', async (req, res) => {
+  try {
+    const store = await Store.findById(req.params.id);
+    if (!store) return res.status(404).send('Store not found');
+    res.status(200).json(store);
+  } catch (error) {
+    res.status(500).send('Error fetching store');
+  }
+});
 // Get all categories (Read-Only)
 router.get('/categories', async (req, res) => {
   try {
