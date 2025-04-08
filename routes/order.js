@@ -24,7 +24,7 @@ async function calculateCartTotals(cart) {
 
 // Place an Order (Customer)
 router.post("/", async (req, res) => {
-  const { userId, shippingAddress, paymentMode = "cod" } = req.body;
+  const { userId, shippingAddress, paymentOption = "cod" } = req.body;
 
   try {
     let cart = await Cart.findOne({ user: userId });
