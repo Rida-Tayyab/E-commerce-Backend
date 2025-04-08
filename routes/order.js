@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Place an Order (Customer)
 router.post("/", async (req, res) => {
-  const { userId, shippingAddress } = req.body;
+  const { userId, shippingAddress ,paymentOption} = req.body;
 
   try {
     const cart = await Cart.findOne({ user: userId }).populate("products.product");
@@ -35,6 +35,7 @@ router.post("/", async (req, res) => {
       products: productsWithTotal,
       totalAmount,
       shippingAddress,
+      paymentOption,
     });
 
     await newOrder.save();
