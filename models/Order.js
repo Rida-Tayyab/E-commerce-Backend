@@ -6,25 +6,9 @@ const orderSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  products: [
-    {
-      product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-        required: true,
-      },
-      quantity: {
-        type: Number,
-        required: true,
-      },
-      total:{
-        type: Number,
-        required: false,
-      }
-    },
-  ],
-  totalAmount: {
-    type: Number,
+  cart: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Cart",
     required: true,
   },
   status: {
@@ -40,6 +24,15 @@ const orderSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  paymentMode: {
+    type: String,
+    enum: ["cod", "online"],
+    default: "cod",
+  }
 });
 
 const Order = mongoose.model("Order", orderSchema);

@@ -5,45 +5,52 @@ const Product = require("../models/Product");
 
 const router = express.Router();
 
+// Helper to calculate totals
+async function calculateCartTotals(cart) {
+  let totalAmount = 0;
+
+  for (const item of cart.products) {
+    const productData = await Product.findById(item.product);
+    if (!productData) continue;
+
+    const total = productData.price * item.quantity;
+    item.total = total;
+    totalAmount += total;
+  }
+
+  cart.totalAmount = totalAmount;
+  await cart.save();
+}
+
 // Place an Order (Customer)
 router.post("/", async (req, res) => {
-  const { userId, shippingAddress } = req.body;
+  const { userId, shippingAddress, paymentMode = "cod" } = req.body;
 
   try {
-    const cart = await Cart.findOne({ user: userId }).populate("products.product");
+    let cart = await Cart.findOne({ user: userId });
     if (!cart || cart.products.length === 0) {
       return res.status(400).json({ msg: "Cart is empty" });
     }
 
-    let totalAmount = 0;
-    const productsWithTotal = [];
+    await calculateCartTotals(cart);
 
-    for (const item of cart.products) {
-      const productData = item.product;
-      const quantity = item.quantity;
-      const total = productData.price * quantity;
-      totalAmount += total;
-
-      productsWithTotal.push({
-        product: productData._id,
-        quantity,
-        total,
-      });
-    }
     const newOrder = new Order({
       user: userId,
-      products: productsWithTotal,
-      totalAmount,
+      cart: cart._id,
       shippingAddress,
+      paymentMode,
     });
 
     await newOrder.save();
 
-    await Cart.findOneAndUpdate({ user: userId }, { products: [] });
+    // Optionally clear the cart after placing the order
+    cart.products = [];
+    cart.totalAmount = 0;
+    await cart.save();
 
     res.status(201).json({ message: "Order placed successfully", order: newOrder });
   } catch (error) {
-    console.error(error.message);
+    console.error("Error placing order:", error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
@@ -59,7 +66,7 @@ router.delete("/:id", async (req, res) => {
     await order.deleteOne();
     res.json({ message: "Order deleted successfully" });
   } catch (error) {
-    console.error(error.message);
+    console.error("Error deleting order:", error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
@@ -69,21 +76,33 @@ router.get("/", async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("user", "email")
-      .populate("products.product", "name price");
+      .populate({
+        path: "cart",
+        populate: {
+          path: "products.product",
+          select: "name price",
+        },
+      });
 
     res.json(orders);
   } catch (error) {
-    console.error(error.message);
+    console.error("Error fetching orders:", error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
 
-// Get Order by ID of user(Admin)
+// Get Order by ID (Admin/User)
 router.get("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("user", "email")
-      .populate("products.product", "name price");
+      .populate({
+        path: "cart",
+        populate: {
+          path: "products.product",
+          select: "name price",
+        },
+      });
 
     if (!order) {
       return res.status(404).json({ msg: "Order not found" });
@@ -91,7 +110,7 @@ router.get("/:id", async (req, res) => {
 
     res.json(order);
   } catch (error) {
-    console.error(error.message);
+    console.error("Error fetching order:", error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
@@ -112,11 +131,12 @@ router.put("/:id", async (req, res) => {
     }
 
     order.status = status;
+    order.updatedAt = new Date();
     await order.save();
 
     res.json(order);
   } catch (error) {
-    console.error(error.message);
+    console.error("Error updating order:", error.message);
     res.status(500).json({ message: "Server Error", error });
   }
 });
