@@ -7,35 +7,38 @@ const router = express.Router();
 
 // Place an Order (Customer)
 router.post("/", async (req, res) => {
-  const { userId, products, shippingAddress } = req.body;
+  const { userId, shippingAddress } = req.body;
 
   try {
-    // Fetch user's cart
     const cart = await Cart.findOne({ user: userId }).populate("products.product");
-    console.log("Cart Data:", cart);
-    if (!cart) {
+    if (!cart || cart.products.length === 0) {
       return res.status(400).json({ msg: "Cart is empty" });
     }
 
-    // Calculate total amount & prepare order products
-    const products = cart.products.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-    }));
-    
-    const totalAmount = cart.products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    let totalAmount = 0;
+    const productsWithTotal = [];
 
-    // Create new order
+    for (const item of cart.products) {
+      const productData = item.product;
+      const quantity = item.quantity;
+      const total = productData.price * quantity;
+      totalAmount += total;
+
+      productsWithTotal.push({
+        product: productData._id,
+        quantity,
+        total,
+      });
+    }
     const newOrder = new Order({
       user: userId,
-      products,
+      products: productsWithTotal,
       totalAmount,
       shippingAddress,
     });
 
     await newOrder.save();
 
-    // Clear the cart after placing an order
     await Cart.findOneAndUpdate({ user: userId }, { products: [] });
 
     res.status(201).json({ message: "Order placed successfully", order: newOrder });
