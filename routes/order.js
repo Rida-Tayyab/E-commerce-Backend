@@ -94,7 +94,7 @@ router.get("/", async (req, res) => {
 // Get Order by ID (Admin/User)
 router.get("/:id", async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
+    const order = await Order.findById({user:req.params.id})
       .populate("user", "email")
       .populate({
         path: "cart",
