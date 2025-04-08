@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Place an Order (Customer)
 router.post("/", async (req, res) => {
-  const { userId, shippingAddress } = req.body;
+  const { userId, products, shippingAddress } = req.body;
 
   try {
     // Fetch user's cart
