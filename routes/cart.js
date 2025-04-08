@@ -1,7 +1,24 @@
 const express = require("express");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+
 const router = express.Router();
+
+// Helper to calculate totals
+async function calculateCartTotals(cart) {
+  let totalAmount = 0;
+
+  for (const item of cart.products) {
+    const productData = await Product.findById(item.product);
+    if (!productData) continue;
+
+    const total = productData.price * item.quantity;
+    item.total = total;
+    totalAmount += total;
+  }
+
+  cart.totalAmount = totalAmount;
+}
 
 // Add product to cart (or increase quantity)
 router.post("/", async (req, res) => {
@@ -33,6 +50,7 @@ router.post("/", async (req, res) => {
       cart.products.push({ product: productId, quantity });
     }
 
+    await calculateCartTotals(cart);
     await cart.save();
     res.json(cart);
   } catch (error) {
@@ -44,12 +62,12 @@ router.post("/", async (req, res) => {
 // Get all products in cart
 router.get("/:userId", async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.params.userId }).populate(
-      "products.product"
-    );
+    const cart = await Cart.findOne({ user: req.params.userId }).populate("products.product");
+
     if (!cart || cart.products.length === 0) {
       return res.status(404).json({ msg: "Cart is empty" });
     }
+
     res.json(cart);
   } catch (error) {
     console.error("Error fetching cart:", error.message);
@@ -75,13 +93,13 @@ router.put("/update", async (req, res) => {
       return res.status(404).json({ msg: "Product not found in cart" });
     }
 
-    // Update quantity or remove if it's zero
     if (quantity > 0) {
       cart.products[productIndex].quantity = quantity;
     } else {
       cart.products.splice(productIndex, 1);
     }
 
+    await calculateCartTotals(cart);
     await cart.save();
     res.json(cart);
   } catch (error) {
@@ -100,8 +118,11 @@ router.delete("/remove", async (req, res) => {
       return res.status(404).json({ msg: "Cart not found" });
     }
 
-    cart.products = cart.products.filter((item) => !item.product.equals(productId));
+    cart.products = cart.products.filter(
+      (item) => !item.product.equals(productId)
+    );
 
+    await calculateCartTotals(cart);
     await cart.save();
     res.json(cart);
   } catch (error) {
