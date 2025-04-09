@@ -192,38 +192,96 @@ async function deleteOrder(req, res) {
 //   }
 // }
 
-// Update Order Status (Admin)
-async function updateOrderStatus(req, res) {
-  const { orderId, status } = req.body;
+// // Update Order Status (Admin)
+// async function updateOrderStatus(req, res) {
+//   const { orderId, status } = req.body;
   
-  try {
-    const connection = await oracledb.getConnection(dbConfig);
+//   try {
+//     const connection = await oracledb.getConnection(dbConfig);
     
-    // Execute the procedure to update the order status
+//     // Execute the procedure to update the order status
+//     await connection.execute(
+//       `BEGIN
+//          update_order_status(:order_id, :status);
+//        END;`,
+//       {
+//         order_id: orderId,
+//         status: status,
+//       }
+//     );
+
+//     res.status(200).json({ message: 'Order status updated successfully' });
+
+//     // Close the connection
+//     await connection.close();
+//   } catch (error) {
+//     console.error('Error updating order status:', error.message);
+//     res.status(500).json({ message: 'Server Error', error });
+//   }
+// }
+
+async function updateMainOrderStatus(orderId) {
+  // Check if all store orders for the given orderId are marked as 'delivered'
+  const connection = await oracledb.getConnection(dbConfig);
+
+  const result = await connection.execute(
+    `SELECT COUNT(*) AS total_orders,
+            COUNT(CASE WHEN status = 'delivered' THEN 1 END) AS delivered_orders
+       FROM store_orders
+      WHERE order_id = :order_id`,
+    { order_id: orderId }
+  );
+
+  const row = result.rows[0];
+  const totalOrders = row.TOTAL_ORDERS;
+  const deliveredOrders = row.DELIVERED_ORDERS;
+
+  if (totalOrders === deliveredOrders) {
+    // If all store orders are delivered, update the main order status to 'delivered'
     await connection.execute(
-      `BEGIN
-         update_order_status(:order_id, :status);
-       END;`,
-      {
-        order_id: orderId,
-        status: status,
-      }
+      `UPDATE orders
+         SET status = 'delivered'
+       WHERE id = :order_id`,
+      { order_id: orderId },
+      { autoCommit: true }
     );
+  }
 
-    res.status(200).json({ message: 'Order status updated successfully' });
+  // Close the connection
+  await connection.close();
+}
 
-    // Close the connection
-    await connection.close();
+//Update status of order by store
+// Update status of the store order (e.g., marking it as delivered)
+async function updateStoreOrderStatus(storeId, status, orderId) {
+  // Implement the logic to update the store's order status in the store_orders table
+  const connection = await oracledb.getConnection(dbConfig);
+  try {
+    await connection.execute(
+      `UPDATE store_orders
+         SET status = :status
+       WHERE store_id = :store_id AND order_id = :order_id`,
+      {
+        status: status,
+        store_id: storeId,
+        order_id: orderId
+      },
+      { autoCommit: true }
+    );
   } catch (error) {
-    console.error('Error updating order status:', error.message);
-    res.status(500).json({ message: 'Server Error', error });
+    console.error('Error updating store order status:', error.message);
+    throw new Error('Error updating store order status');  // Throw an error to be handled by the route
+  } finally {
+    await connection.close(); // Make sure to close the connection
   }
 }
+
 
 module.exports = {
   placeOrder,
   deleteOrder,
   // getOrdersByUser,
-  updateOrderStatus,
+  updateMainOrderStatus,
+  updateStoreOrderStatus,
   getOrdersByStore,
 };

@@ -9,14 +9,45 @@ router.post('/', orderController.placeOrder);
 // Delete an order (Customer)
 router.delete('/:id', orderController.deleteOrder);
 
-// // Get all orders by user (Admin)
-// router.get('/:id', orderController.getOrdersByUser);
-
-//Get orders by store
+// Get orders by store (Admin)
 router.get('/store/:storeId', orderController.getOrdersByStore);
 
 // Update order status (Admin)
-router.put('/:id', orderController.updateOrderStatus);
+// This route will update both individual store order statuses and check if the main order status should be updated.
+router.put('/:id', async (req, res) => {
+  const { id } = req.params; // Get the order ID from the URL
+  const { status, storeId } = req.body; // Get status and storeId from the request body
+
+  console.log('Received order ID:', id); // Debugging line
+  console.log('Received status:', status);  // Debugging line
+  console.log('Received storeId:', storeId); // Debugging line
+
+  try {
+    if (!status || !storeId) {
+      return res.status(400).json({ message: 'Status and storeId are required.' });
+    }
+
+    // First, update the individual store order status
+    await orderController.updateStoreOrderStatus(storeId, status, id);
+
+    // Now, if the status is delivered, use the utility to update the store's sales
+    if (status === 'delivered') {
+      await updateStoreSales(storeId, id); // Call the utility function to update sales for the store
+    }
+
+    // Check if all store orders for this main order are delivered and then update the main order status
+    await orderController.updateMainOrderStatus(id);
+
+    // Send response
+    res.status(200).json({
+      message: `Order status for store ${storeId} updated to '${status}'.`
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error.message);
+    res.status(500).json({ message: 'Server Error', error });
+  }
+});
+
 
 module.exports = router;
 
