@@ -33,6 +33,14 @@ const productSchema = new mongoose.Schema({
     ref: 'Store',
     required: true,
   },
+  rating: {
+    type: Number,
+    default: 0,
+  },
+  reviewCount: {
+    type: Number,
+    default: 0,
+  },
 }, { timestamps: true });
 
 const Product = mongoose.model('Product', productSchema);

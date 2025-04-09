@@ -51,6 +51,10 @@ router.post('/review', authenticateUser, async (req, res) => {
     const { product, rating, review } = req.body;
     const userId = req.user._id;
 
+    if (!product || !rating || !review) {
+      return res.status(400).json({ message: 'All fields are required.' });
+    }
+
     const existing = await Review.findOne({ user: userId, product });
     if (existing) {
       return res.status(400).json({ message: "You have already reviewed this product." });
@@ -64,6 +68,25 @@ router.post('/review', authenticateUser, async (req, res) => {
     });
 
     await newReview.save();
+
+    const aggregate = await Review.aggregate([
+      { $match: { product: new mongoose.Types.ObjectId(product) } },
+      {
+        $group: {
+          _id: '$product',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const { avgRating = 0, reviewCount = 0 } = aggregate[0] || {};
+
+    await Product.findByIdAndUpdate(product, {
+      rating: avgRating.toFixed(1),
+      reviewCount
+    });
+
     res.status(201).json(newReview);
   } catch (err) {
     console.error("Error creating review:", err);
