@@ -9,8 +9,11 @@ router.post('/', orderController.placeOrder);
 // Delete an order (Customer)
 router.delete('/:id', orderController.deleteOrder);
 
-// Get all orders by user (Admin)
-router.get('/:id', orderController.getOrdersByUser);
+// // Get all orders by user (Admin)
+// router.get('/:id', orderController.getOrdersByUser);
+
+//Get orders by store
+router.get('/store/:storeId', orderController.getOrdersByStore);
 
 // Update order status (Admin)
 router.put('/:id', orderController.updateOrderStatus);

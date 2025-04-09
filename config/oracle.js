@@ -4,7 +4,7 @@ const oracledb = require("oracledb");
 const dbConfig = {
   user: "C##ecommerce",
   password:"ecommerce123",
-  connectString: process.env.ORACLE_CONNECTION_STRING,
+  connectString: 'localhost:1521/XE',
 };
 
 async function runQuery(sql, binds = {}) {
