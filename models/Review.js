@@ -5,15 +5,15 @@ const reviewSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,
-    s},
+    },
   rating: {
     type: Number,
     required: true,
     min: 1,
-    max: 1,
+    max: 5,
   },
   review: {
-    type: Text,
+    type: String,
     required: true,
     min: 1,
   },
