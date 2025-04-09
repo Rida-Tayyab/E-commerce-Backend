@@ -33,6 +33,18 @@ const storeSchema = new mongoose.Schema(
         ref: 'Product'
       }
     ],
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+    },
+    totalSales: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

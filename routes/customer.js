@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const authenticateUser = require('../middleware/auth');
 const Review = require('../models/Review');
+const Store = require('../models/Store');
 
 
 const router = express.Router();
@@ -46,6 +47,8 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+//first calls authenticateUser middleware. After a user adds a review, calculates and updates the product and store rating and review count
+
 router.post('/review', authenticateUser, async (req, res) => {
   try {
     const { product, rating, review } = req.body;
@@ -69,7 +72,8 @@ router.post('/review', authenticateUser, async (req, res) => {
 
     await newReview.save();
 
-    const aggregate = await Review.aggregate([
+    // Update product rating
+    const productAggregate = await Review.aggregate([
       { $match: { product: new mongoose.Types.ObjectId(product) } },
       {
         $group: {
@@ -80,11 +84,32 @@ router.post('/review', authenticateUser, async (req, res) => {
       }
     ]);
 
-    const { avgRating = 0, reviewCount = 0 } = aggregate[0] || {};
+    const { avgRating = 0, reviewCount = 0 } = productAggregate[0] || {};
 
-    await Product.findByIdAndUpdate(product, {
+    const updatedProduct = await Product.findByIdAndUpdate(product, {
       rating: avgRating.toFixed(1),
       reviewCount
+    }, { new: true });
+
+    // Update store rating
+    const storeId = updatedProduct.store;
+
+    const storeAggregate = await Product.aggregate([
+      { $match: { store: new mongoose.Types.ObjectId(storeId), rating: { $gt: 0 } } },
+      {
+        $group: {
+          _id: '$store',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: '$reviewCount' }
+        }
+      }
+    ]);
+
+    const storeStats = storeAggregate[0] || { avgRating: 0, reviewCount: 0 };
+
+    await Store.findByIdAndUpdate(storeId, {
+      rating: storeStats.avgRating.toFixed(1),
+      reviewCount: storeStats.reviewCount
     });
 
     res.status(201).json(newReview);
@@ -93,6 +118,7 @@ router.post('/review', authenticateUser, async (req, res) => {
     res.status(500).json({ message: "Something went wrong." });
   }
 });
+
 
 module.exports = router;
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
+const updateStoreSales = require('../utils/updateStoreSales');
 
 // Place an order (Customer)
 router.post('/', orderController.placeOrder);
@@ -134,30 +135,54 @@ module.exports = router;
 //   }
 // });
 
-// // Update Order Status (Admin)
-// router.put("/:id", async (req, res) => {
-//   const { status } = req.body;
-
-//   try {
-//     const order = await Order.findById(req.params.id);
-//     if (!order) {
-//       return res.status(404).json({ msg: "Order not found" });
-//     }
-
-//     const validStatuses = ["pending", "shipped", "delivered"];
-//     if (!validStatuses.includes(status)) {
-//       return res.status(400).json({ msg: "Invalid status" });
-//     }
-
-//     order.status = status;
-//     order.updatedAt = new Date();
-//     await order.save();
-
-//     res.json(order);
-//   } catch (error) {
-//     console.error("Error updating order:", error.message);
-//     res.status(500).json({ message: "Server Error", error });
-//   }
-// });
+// Update Order Status (Admin) this calls a trigger updateStoreSales in /utils that updates the total number of sales associate with a store once one of it's orders is marked delivered
+router.put("/:id", async (req, res) => {
+    const { status } = req.body;
+  
+    try {
+      const order = await Order.findById(req.params.id).populate({
+        path: 'cart',
+        populate: {
+          path: 'products.product',
+          model: 'Product'
+        }
+      });
+  
+      if (!order) {
+        return res.status(404).json({ msg: "Order not found" });
+      }
+  
+      const validStatuses = ["pending", "shipped", "delivered"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ msg: "Invalid status" });
+      }
+  
+      const wasAlreadyDelivered = order.status === "delivered";
+  
+      order.status = status;
+      order.updatedAt = new Date();
+      await order.save();
+  
+      if (status === "delivered" && !wasAlreadyDelivered) {
+        const storeIds = new Set();
+  
+        for (const item of order.cart.products) {
+          const storeId = item.product?.store;
+          if (storeId) {
+            storeIds.add(storeId.toString());
+          }
+        }
+  
+        for (const storeId of storeIds) {
+          await updateStoreSales(storeId);
+        }
+      }
+  
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating order:", error.message);
+      res.status(500).json({ message: "Server Error", error });
+    }
+  });
 
 // module.exports = router;
