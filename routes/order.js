@@ -3,6 +3,7 @@ const router = express.Router();
 const orderController = require('../controllers/orderController');
 const updateStoreSales = require('../utils/updateStoreSales');
 
+
 // Place an order (Customer)
 router.post('/', orderController.placeOrder);
 

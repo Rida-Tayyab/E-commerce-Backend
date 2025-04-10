@@ -8,3 +8,6 @@ CREATE TABLE orders (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payment_mode VARCHAR2(20) DEFAULT 'cod' CHECK (payment_mode IN ('cod', 'online'))
 );
+
+
+

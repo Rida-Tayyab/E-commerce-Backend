@@ -2,6 +2,7 @@ const oracledb = require('oracledb');
 const calculateCartTotals = require('../utils/calculateCartTotals');
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const { getOrderById, getStoreOrdersByOrderId, deleteStoreOrders, deleteMainOrder } = require('../utils/deleteOrdersutils');
 
 // Database connection settings
 const dbConfig = {
@@ -140,30 +141,36 @@ async function getOrdersByStore(req, res) {
 
 // Delete Order (Customer)
 async function deleteOrder(req, res) {
-  const { orderId } = req.params;
-  
+  const orderId = req.params.id;
+
   try {
-    const connection = await oracledb.getConnection(dbConfig);
-    
-    // Execute the procedure to delete the order
-    await connection.execute(
-      `BEGIN
-         delete_order(:order_id);
-       END;`,
-      {
-        order_id: orderId,
-      }
-    );
+    const mainOrder = await getOrderById(orderId);
+    if (!mainOrder) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
 
-    res.status(200).json({ message: 'Order deleted successfully' });
+    if (mainOrder.STATUS !== 'pending') {
+      return res.status(400).json({ message: 'Order cannot be deleted. Status is not pending.' });
+    }
 
-    // Close the connection
-    await connection.close();
+    const storeOrders = await getStoreOrdersByOrderId(orderId);
+    const nonPendingStore = storeOrders.find(order => order.STATUS !== 'pending');
+
+    if (nonPendingStore) {
+      return res.status(400).json({
+        message: `Cannot delete. Store order from store ID ${nonPendingStore.STORE_ID} is already ${nonPendingStore.STATUS}.`
+      });
+    }
+
+    await deleteStoreOrders(orderId);
+    await deleteMainOrder(orderId);
+
+    return res.status(200).json({ message: 'Order and all related store orders successfully deleted.' });
   } catch (error) {
-    console.error('Error deleting order:', error.message);
-    res.status(500).json({ message: 'Server Error', error });
+    console.error('Error deleting order:', error);
+    return res.status(500).json({ message: 'Server Error', error });
   }
-}
+};
 
 // // Get Orders by User (Customer)
 // async function getOrdersByUser(req, res) {

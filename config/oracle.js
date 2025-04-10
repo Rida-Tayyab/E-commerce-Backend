@@ -1,11 +1,21 @@
 const { ECDH } = require("crypto");
 const oracledb = require("oracledb");
 
+oracledb.initOracleClient();
 const dbConfig = {
   user: "C##ecommerce",
   password:"ecommerce123",
   connectString: 'localhost:1521/XE',
 };
+
+let connection;
+
+async function getConnection() {
+  if (!connection) {
+    connection = await oracledb.getConnection(dbConfig);
+  }
+  return connection;
+}
 
 async function runQuery(sql, binds = {}) {
   const conn = await oracledb.getConnection(dbConfig);
@@ -22,4 +32,4 @@ async function runProcedure(sql, binds = {}) {
   await conn.close();
 }
 
-module.exports = { runQuery, runProcedure };
+module.exports = { runQuery, runProcedure ,getConnection};
