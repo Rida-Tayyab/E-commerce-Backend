@@ -8,6 +8,7 @@ BEGIN
             id AS order_id,
             status,
             shipping_address,
+            cart_id,
             created_at,
             updated_at,
             payment_mode
@@ -19,3 +20,4 @@ BEGIN
             created_at DESC;
 END;
 /
+Select * from orders;

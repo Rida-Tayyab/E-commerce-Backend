@@ -2,6 +2,8 @@ const oracledb = require('oracledb');
 const calculateCartTotals = require('../utils/calculateCartTotals');
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const CartHistory = require("../models/CartHistory");
+const mongoose = require('mongoose');
 const { getOrderById, getStoreOrdersByOrderId, deleteStoreOrders, deleteMainOrder } = require('../utils/deleteOrdersutils');
 
 // Database connection settings
@@ -22,17 +24,17 @@ async function placeOrder(req, res) {
     }
 
     // Calculate cart totals
-    const totalAmount=await calculateCartTotals(cart);
+    const totalAmount = await calculateCartTotals(cart);
 
     // Connect to Oracle DB
     const connection = await oracledb.getConnection(dbConfig);
-    
+
     // Execute the stored procedure to create an order
     const result = await connection.execute(
       `DECLARE
          v_order_id NUMBER;
        BEGIN
-         C##ecommerce.create_order(:user_id, :cart_id, :shipping_address, :payment_mode,:total_amount, v_order_id);
+         C##ecommerce.create_order(:user_id, :cart_id, :shipping_address, :payment_mode, :total_amount, v_order_id);
          :out_order_id := v_order_id;
        END;`,
       {
@@ -47,8 +49,20 @@ async function placeOrder(req, res) {
 
     const orderId = result.outBinds.out_order_id;
 
+    // Store products before clearing the cart
+    const productsCopy = [...cart.products];
+
+    // Save cart history
+    const cartHistoryData = new CartHistory({
+      orderId: orderId,
+      products: productsCopy,
+      totalAmount: totalAmount,
+    });
+    await cartHistoryData.save();
+
+    // Group by store BEFORE clearing the cart
     const grouped = {};
-    for (const item of cart.products) {
+    for (const item of productsCopy) {
       const product = await Product.findById(item.product).lean();
       const storeId = product.store.toString();
       if (!grouped[storeId]) grouped[storeId] = 0;
@@ -68,23 +82,23 @@ async function placeOrder(req, res) {
       );
     }
 
-    await connection.commit();
-
-
-    // Optionally clear the cart after placing the order
+    // Clear the cart AFTER all necessary operations
     cart.products = [];
     cart.totalAmount = 0;
     await cart.save();
 
-    res.status(201).json({ message: "Order placed successfully" });
-    
-    // Close the connection
+    await connection.commit();
     await connection.close();
+
+    res.status(201).json({ message: "Order placed successfully" });
   } catch (error) {
     console.error('Error placing order:', error.message);
     res.status(500).json({ message: 'Server Error', error });
   }
 }
+
+
+
 async function getOrdersByStore(req, res) {
   const { storeId } = req.params;
 
@@ -175,9 +189,9 @@ async function deleteOrder(req, res) {
 // Get Orders by User (Customer)
 async function getOrdersByUser(req, res) {
   const { userId } = req.params;
-  console.log("User ID:", userId); // Log the userId to check if it's being passed correctly
 
   try {
+    // Step 1: Connect to Oracle DB and get the orders for the user
     const connection = await oracledb.getConnection(dbConfig);
 
     const result = await connection.execute(
@@ -189,46 +203,114 @@ async function getOrdersByUser(req, res) {
     );
 
     const resultSet = result.outBinds.orders;
-    const orders = await resultSet.getRows(); // optionally use .getRows(n) for pagination
+    const orders = await resultSet.getRows();
     await resultSet.close();
     await connection.close();
 
-    res.status(200).json({ message: "Orders fetched successfully", orders });
+    if (orders.length === 0) {
+      return res.status(404).json({ message: "No orders found for this user" });
+    }
+
+    // Step 2: Get the order IDs
+    const orderIds = orders.map(order => order[0]); // assuming order[0] = orderId
+
+    // Step 3: Get carts and populate product names
+    const carts = await CartHistory.find({ orderId: { $in: orderIds } });
+
+    // Fetch all product IDs used in the carts
+    const allProductIds = carts.flatMap(cart =>
+      cart.products.map(p => p.product)
+    );
+
+    const productDetails = await Product.find({ _id: { $in: allProductIds } }, 'name'); // fetch only name
+
+    // Step 4: Create a map for productId => name
+    const productMap = {};
+    productDetails.forEach(p => {
+      productMap[p._id.toString()] = p.name;
+    });
+
+    // Step 5: Match carts with orders and include product names
+    const ordersWithCart = orders.map(order => {
+      const orderId = order[0];
+      const matchingCart = carts.find(cart => cart.orderId === orderId);
+
+      // Enhance products with product name
+      const enhancedProducts = matchingCart?.products.map(prod => ({
+        ...prod._doc,
+        name: productMap[prod.product.toString()] || "Unknown Product"
+      }));
+
+      return {
+        orderDetails: {
+          id: order[0],
+          status: order[1],
+          shippingAddress: order[2],
+          orderId: order[0],
+          createdAt: order[4],
+          updatedAt: order[5],
+          paymentMethod: order[6],
+        },
+        cart: matchingCart ? { ...matchingCart._doc, products: enhancedProducts } : null,
+      };
+    });
+
+    // Step 6: Send final response
+    res.status(200).json({
+      message: "Orders fetched successfully",
+      orders: ordersWithCart,
+    });
+
   } catch (error) {
     console.error("Error fetching orders:", error.message);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 }
-
 async function updateMainOrderStatus(orderId) {
-  // Check if all store orders for the given orderId are marked as 'delivered'
   const connection = await oracledb.getConnection(dbConfig);
 
-  const result = await connection.execute(
-    `SELECT COUNT(*) AS total_orders,
-            COUNT(CASE WHEN status = 'delivered' THEN 1 END) AS delivered_orders
+  try {
+    const result = await connection.execute(
+      `SELECT
+         COUNT(*) AS total_orders,
+         COUNT(CASE WHEN status = 'delivered' THEN 1 END) AS delivered_orders,
+         COUNT(CASE WHEN status = 'shipped' THEN 1 END) AS shipped_orders
        FROM store_orders
-      WHERE order_id = :order_id`,
-    { order_id: orderId }
-  );
-
-  const row = result.rows[0];
-  const totalOrders = row.TOTAL_ORDERS;
-  const deliveredOrders = row.DELIVERED_ORDERS;
-
-  if (totalOrders === deliveredOrders) {
-    // If all store orders are delivered, update the main order status to 'delivered'
-    await connection.execute(
-      `UPDATE orders
-         SET status = 'delivered'
-       WHERE id = :order_id`,
-      { order_id: orderId },
-      { autoCommit: true }
+       WHERE order_id = :order_id`,
+      { order_id: orderId }
     );
-  }
 
-  // Close the connection
-  await connection.close();
+    const row = result.rows[0];
+    const totalOrders = row.TOTAL_ORDERS;
+    const deliveredOrders = row.DELIVERED_ORDERS;
+    const shippedOrders = row.SHIPPED_ORDERS;
+
+    let newStatus = null;
+
+    if (deliveredOrders === totalOrders) {
+      newStatus = 'delivered';
+    } else if (shippedOrders === totalOrders ) {
+      newStatus = 'shipped';
+    }
+
+    if (newStatus) {
+      await connection.execute(
+        `UPDATE orders
+         SET status = :status
+         WHERE id = :order_id`,
+        {
+          status: newStatus,
+          order_id: orderId,
+        },
+        { autoCommit: true }
+      );
+    }
+  } catch (err) {
+    console.error("Error updating main order status:", err.message);
+    throw err;
+  } finally {
+    await connection.close();
+  }
 }
 
 //Update status of order by store
