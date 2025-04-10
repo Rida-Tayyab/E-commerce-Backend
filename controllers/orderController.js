@@ -172,60 +172,33 @@ async function deleteOrder(req, res) {
   }
 };
 
-// // Get Orders by User (Customer)
-// async function getOrdersByUser(req, res) {
-//   const { userId } = req.params;
-  
-//   try {
-//     const connection = await oracledb.getConnection(dbConfig);
-    
-//     // Execute the procedure to fetch orders by user
-//     const result = await connection.execute(
-//       `BEGIN
-//          get_order_by_user(:user_id);
-//        END;`,
-//       {
-//         user_id: userId,
-//       }
-//     );
+// Get Orders by User (Customer)
+async function getOrdersByUser(req, res) {
+  const { userId } = req.params;
+  console.log("User ID:", userId); // Log the userId to check if it's being passed correctly
 
-//     res.status(200).json({ message: 'Orders fetched successfully', result });
-    
-//     // Close the connection
-//     await connection.close();
-//   } catch (error) {
-//     console.error('Error fetching orders:', error.message);
-//     res.status(500).json({ message: 'Server Error', error });
-//   }
-// }
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
 
-// // Update Order Status (Admin)
-// async function updateOrderStatus(req, res) {
-//   const { orderId, status } = req.body;
-  
-//   try {
-//     const connection = await oracledb.getConnection(dbConfig);
-    
-//     // Execute the procedure to update the order status
-//     await connection.execute(
-//       `BEGIN
-//          update_order_status(:order_id, :status);
-//        END;`,
-//       {
-//         order_id: orderId,
-//         status: status,
-//       }
-//     );
+    const result = await connection.execute(
+      `BEGIN get_orders_by_user(:user_id, :orders); END;`,
+      {
+        user_id: userId,
+        orders: { dir: oracledb.BIND_OUT, type: oracledb.CURSOR },
+      }
+    );
 
-//     res.status(200).json({ message: 'Order status updated successfully' });
+    const resultSet = result.outBinds.orders;
+    const orders = await resultSet.getRows(); // optionally use .getRows(n) for pagination
+    await resultSet.close();
+    await connection.close();
 
-//     // Close the connection
-//     await connection.close();
-//   } catch (error) {
-//     console.error('Error updating order status:', error.message);
-//     res.status(500).json({ message: 'Server Error', error });
-//   }
-// }
+    res.status(200).json({ message: "Orders fetched successfully", orders });
+  } catch (error) {
+    console.error("Error fetching orders:", error.message);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+}
 
 async function updateMainOrderStatus(orderId) {
   // Check if all store orders for the given orderId are marked as 'delivered'
@@ -287,7 +260,7 @@ async function updateStoreOrderStatus(storeId, status, orderId) {
 module.exports = {
   placeOrder,
   deleteOrder,
-  // getOrdersByUser,
+  getOrdersByUser,
   updateMainOrderStatus,
   updateStoreOrderStatus,
   getOrdersByStore,

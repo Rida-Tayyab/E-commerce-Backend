@@ -7,6 +7,8 @@ const updateStoreSales = require('../utils/updateStoreSales');
 // Place an order (Customer)
 router.post('/', orderController.placeOrder);
 
+router.get('/user/:userId', orderController.getOrdersByUser);
+
 // Delete an order (Customer)
 router.delete('/:id', orderController.deleteOrder);
 
