@@ -4,7 +4,7 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const CartHistory = require("../models/CartHistory");
 const mongoose = require('mongoose');
-const { getOrderById, getStoreOrdersByOrderId, deleteStoreOrders, deleteMainOrder } = require('../utils/deleteOrdersutils');
+const { getOrderById, getStoreOrdersByOrderId, cancelStatusStoreOrder, cancelStatusMainOrder } = require('../utils/deleteOrdersutils');
 
 // Database connection settings
 const dbConfig = {
@@ -163,28 +163,42 @@ async function deleteOrder(req, res) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    if (mainOrder.STATUS !== 'pending') {
-      return res.status(400).json({ message: 'Order cannot be deleted. Status is not pending.' });
-    }
-
     const storeOrders = await getStoreOrdersByOrderId(orderId);
-    const nonPendingStore = storeOrders.find(order => order.STATUS !== 'pending');
 
-    if (nonPendingStore) {
-      return res.status(400).json({
-        message: `Cannot delete. Store order from store ID ${nonPendingStore.STORE_ID} is already ${nonPendingStore.STATUS}.`
-      });
+    // Case 1: If main order is 'cancelled', update all store orders to 'cancelled'
+    if (mainOrder.STATUS === 'cancelled') {
+      for (const storeOrder of storeOrders) {
+        await updateStoreOrderStatus(storeOrder.STORE_ID, 'cancelled', orderId);
+      }
+
+      return res.status(200).json({ message: 'Store orders updated to cancelled for a cancelled main order.' });
     }
 
-    await deleteStoreOrders(orderId);
-    await deleteMainOrder(orderId);
+    // Case 2: If main order is 'pending', check if all store orders are also 'pending'
+    if (mainOrder.STATUS === 'pending') {
+      const nonPendingStore = storeOrders.find(order => order.STATUS !== 'pending');
 
-    return res.status(200).json({ message: 'Order and all related store orders successfully deleted.' });
+      if (nonPendingStore) {
+        return res.status(400).json({
+          message: `Cannot delete. Store order from store ID ${nonPendingStore.STORE_ID} is already ${nonPendingStore.STATUS}.`
+        });
+      }
+
+      await cancelStatusStoreOrders(orderId);
+      await cancelStatusMainOrder(orderId);
+
+      return res.status(200).json({ message: 'Order and all related store orders successfully deleted.' });
+    }
+
+    // Default fallback
+    return res.status(400).json({ message: 'Order cannot be deleted. Only pending or cancelled orders are allowed.' });
+
   } catch (error) {
     console.error('Error deleting order:', error);
     return res.status(500).json({ message: 'Server Error', error });
   }
-};
+}
+
 
 // Get Orders by User (Customer)
 async function getOrdersByUser(req, res) {

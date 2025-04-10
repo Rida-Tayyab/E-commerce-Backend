@@ -21,19 +21,19 @@ async function getStoreOrdersByOrderId(orderId) {
   return result.rows;
 }
 
-async function deleteStoreOrders(orderId) {
+async function cancelStatusStoreOrders(orderId) {
   const connection = await getConnection();
   await connection.execute(
-    `DELETE FROM store_orders WHERE order_id = :id`,
+    `Update store_orders SET status = 'cancelled' WHERE order_id = :id`,
     [orderId],
     { autoCommit: false }
   );
 }
 
-async function deleteMainOrder(orderId) {
+async function cancelStatusMainOrder(orderId) {
   const connection = await getConnection();
   await connection.execute(
-    `DELETE FROM orders WHERE id = :id`,
+    `Update orders SET status = 'cancelled' WHERE id = :id`,
     [orderId],
     { autoCommit: true }
   );
@@ -42,6 +42,6 @@ async function deleteMainOrder(orderId) {
 module.exports = {
   getOrderById,
   getStoreOrdersByOrderId,
-  deleteStoreOrders,
-  deleteMainOrder
+  cancelStatusStoreOrders,
+  cancelStatusMainOrder,
 };
