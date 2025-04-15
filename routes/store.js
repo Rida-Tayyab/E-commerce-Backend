@@ -5,6 +5,8 @@ const Order = require('../models/Order');
 const Store = require('../models/Store');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const redisClient= require('../utils/redisClient');
+const { clearProductCache } = require('../utils/redisClient');
 
 
 //Get store by ID
@@ -103,91 +105,64 @@ router.get('/categories/:id', async (req, res) => {
 // Add a new product
 router.post('/products', async (req, res) => {
   try {
-    console.log("add product route was hit and req.cookies in add product", req.cookies);
     const token = req.cookies.authToken;
-    console.log("token from cookies in add product", token);
-    if (!token) {
-      return res.status(401).send('No token provided');
-    }
+    if (!token) return res.status(401).send('No token provided');
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("decoded token in add product", decoded);
     const storeId = decoded.id;
 
-    console.log("storeId from jwt", storeId); 
-
     const { name, description, price, category, stock, image } = req.body;
-
-    console.log("post request for adding product recieved in backend: ", req.body);
-
-    if (!name || !price  || stock === undefined) { //removed category for testing
+    if (!name || !price || stock === undefined) {
       return res.status(400).send('All fields are required.');
     }
 
     const newProduct = new Product({ 
-      name, 
-      description, 
-      price, 
-      category, 
-      stock, 
-      image,
-      store: storeId,  //need to set accordingly using the credentials recieved in req.body from frontend
-      });
-    await newProduct.save();
+      name, description, price, category, stock, image, store: storeId
+    });
 
+    await newProduct.save();
+    
+    // Clear cache and wait for completion
+    await redisClient.clearProductCache();
+    console.log('Cache cleared after product creation');
+    
     res.status(201).json({ message: 'Product added successfully', product: newProduct });
   } catch (error) {
+    console.error("Error adding product:", error);
     res.status(500).send('Error adding product');
   }
 });
 
-// Update an order's status by ID
-router.put('/order/:id', async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedOrder) return res.status(404).send('Order not found');
-
-    res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
-  } catch (error) {
-    res.status(500).send('Error updating order status');
-  }
-});
-
+// PUT /products/:id
 router.put('/products/:id', async (req, res) => {
   try {
-    const { name, description, price, category, stock, image } = req.body;
-    
+    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { name, description, price, category, stock, image },
-      { new: true, runValidators: true }
-    );
+    // Clear cache and wait for completion
+    await redisClient.clearProductCache();
+    console.log('Cache cleared after product update');
 
-    if (!updatedProduct) return res.status(404).send('Product not found');
-
-    res.status(200).json({ message: 'Product updated successfully', product: updatedProduct });
-  } catch (error) {
-    res.status(500).send('Error updating product');
+    res.status(200).json(updated);
+  } catch (err) {
+    console.error("Error updating product:", err);
+    res.status(400).json({ error: 'Update failed' });
   }
 });
-
-// Delete a product by ID
+// DELETE /products/:id
 router.delete('/products/:id', async (req, res) => {
   try {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+    const deleted = await Product.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Product not found' });
 
-    if (!deletedProduct) return res.status(404).send('Product not found');
+    // Clear cache and wait for completion
+    await redisClient.clearProductCache();
+    console.log('Cache cleared after product deletion');
 
-    res.status(200).json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    res.status(500).send('Error deleting product');
+    res.status(200).json({ message: 'Product deleted' });
+  } catch (err) {
+    console.error("Error deleting product:", err);
+    res.status(500).json({ error: 'Deletion failed' });
   }
 });
 

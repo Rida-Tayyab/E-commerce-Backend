@@ -4,12 +4,28 @@ const Category = require('../models/Category');
 const authenticateUser = require('../middleware/auth');
 const Review = require('../models/Review');
 const Store = require('../models/Store');
+const redisClient = require('../utils/redisClient');
 
 
 const router = express.Router();
+
 router.get('/products', async (req, res) => {
   try {
     const { search, category } = req.query;
+
+    // Create cache key
+    const cacheKeyParts = ['products'];
+    if (search) cacheKeyParts.push(`search:${search}`);
+    if (category) cacheKeyParts.push(`category:${category}`);
+    const cacheKey = cacheKeyParts.join(':');
+
+    // Check cache
+    const cachedProducts = await redisClient.get(cacheKey);
+    if (cachedProducts) {
+      return res.status(200).json(JSON.parse(cachedProducts));
+    }
+
+    // Build filter
     let filter = {};
     if (search) {
       filter.$or = [
@@ -17,27 +33,21 @@ router.get('/products', async (req, res) => {
         { description: { $regex: search, $options: 'i' } }
       ];
     }
-
     if (category) {
-      if (filter.$or) {
-        filter = {
-          $and: [
-            { $or: filter.$or },
-            { category: category }
-          ]
-        };
-      } else {
-        filter.category = category;
-      }
+      filter = filter.$or 
+        ? { $and: [{ $or: filter.$or }, { category }] }
+        : { category };
     }
 
+    // Fetch from DB
     const products = await Product.find(filter)
       .populate('store', 'businessName ownerName ownerEmail businessType NTN contactEmail phone website address logoUrl description')
       .sort({ createdAt: -1 });
 
-    console.log("Received Category:", category);
-    console.log("Products populated with store info sent to frontend: ", products);
-    res.json(products);
+    // Cache result
+    await redisClient.set(cacheKey, JSON.stringify(products), { EX: 3600 });
+    res.status(200).json(products);
+
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).send('Error fetching products');
