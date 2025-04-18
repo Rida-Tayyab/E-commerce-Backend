@@ -11,7 +11,7 @@ const orderRoutes = require("./routes/order");
 const cookieParser = require('cookie-parser');
 const productRoutes = require('./routes/product');
 const reviewRoutes = require('./routes/review');
-
+const analyticsRoutes = require('./routes/analytics');
 
 
 dotenv.config();
@@ -31,7 +31,8 @@ app.use('/customer', customerRoutes);
 app.use("/cart", cartRoutes);
 app.use("/order", orderRoutes);
 app.use('/product', productRoutes);
-app.use('/reviews', reviewRoutes)
+app.use('/reviews', reviewRoutes);
+app.use('/analytics', analyticsRoutes);
 app.use(paymentRoutes);
 
 
