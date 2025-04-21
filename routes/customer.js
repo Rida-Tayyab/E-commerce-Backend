@@ -1,5 +1,6 @@
 const express = require('express');
 const Product = require('../models/Product');
+const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const authenticateUser = require('../middleware/auth');
 const Review = require('../models/Review');
